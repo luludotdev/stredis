@@ -27,6 +27,20 @@ interface BlockReadOptions {
   count?: number
 }
 
+interface ReadIteratorOptions {
+  /**
+   * Time (in ms) to block for polling data (default: 1000)
+   *
+   * Set to `0` to block until new data arrives
+   */
+  maxBlockTime?: number
+
+  /**
+   * Max number of items to poll for at a time (default: 1)
+   */
+  maxItems?: number
+}
+
 interface Entry {
   /**
    * Unique Entry ID
@@ -115,5 +129,18 @@ export const createStreamer = (key: string, options: Options) => {
     return readInternal(consumer, count, blockMS)
   }
 
-  return { write, read, blockRead }
+  async function* readIterator(consumer: string, options?: ReadIteratorOptions) {
+    const count = options?.maxItems ?? 1
+    const blockMS = options?.maxBlockTime ?? 1000
+
+    while (true) {
+      const values = await readInternal(consumer, count, blockMS)
+
+      for (const entry of values) {
+        yield entry
+      }
+    }
+  }
+
+  return { write, read, blockRead, readIterator }
 }
