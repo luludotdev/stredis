@@ -1,4 +1,5 @@
-import type { Redis } from 'ioredis'
+import Redis from 'ioredis'
+import type { Redis as IORedis } from 'ioredis'
 import chunk from 'chunk'
 
 interface Options {
@@ -8,9 +9,20 @@ interface Options {
   groupName?: string
 
   /**
+   * Redis Connection Info
+   */
+  connection?: {
+    host: string
+    port?: number
+    username?: string
+    pass?: string
+    db?: number
+  }
+
+  /**
    * IORedis Connection Object
    */
-  ioredis: Redis
+  ioredis?: IORedis
 
   /**
    * Maximum time (in ms) that a message can remain pending before being claimed (default: 5000)
@@ -71,7 +83,22 @@ interface Entry {
  * @param key Redis Key to use for the Stream
  */
 export const createStreamer = (key: string, options: Options) => {
-  const db = options.ioredis
+  const resolveDB = () => {
+    if (options.ioredis) return options.ioredis
+    if (!options.connection) {
+      throw new Error('must specify either options.connection or options.ioredis')
+    }
+
+    return new Redis({
+      host: options.connection.host,
+      port: options.connection.port,
+      username: options.connection.username,
+      password: options.connection.pass,
+      db: options.connection.db,
+    })
+  }
+
+  const db = resolveDB()
   const streamName = key
   const groupName = options.groupName ?? key
 
