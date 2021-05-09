@@ -27,11 +27,28 @@ interface BlockReadOptions {
   count?: number
 }
 
+interface Entry {
+  /**
+   * Unique Entry ID
+   */
+  id: string
+  /**
+   * Data for this Entry
+   */
+  value: Record<string, string>
+
+  /**
+   * Mark this entry as acknowledged
+   */
+  ack: () => Promise<void>
+}
+
 /**
  * @param key Redis Key to use for the Stream
  */
 export const createStreamer = (key: string, options: Options) => {
   const db = options.ioredis
+  const streamName = key
   const groupName = options.groupName ?? key
 
   const createGroup = async () => {
@@ -50,24 +67,31 @@ export const createStreamer = (key: string, options: Options) => {
     const mapped = Array.isArray(data) ? [data] : Object.entries(data)
     const flat = mapped.flat()
 
-    await db.xadd(key, '*', ...flat)
+    await db.xadd(streamName, '*', ...flat)
   }
 
-  const readInternal = async (consumer: string, count: number, block?: number) => {
+  const readInternal: (consumer: string, count: number, block?: number) => Promise<Array<Entry>> = async (consumer, count, block) => {
     await createGroup()
 
     const commands = [consumer, 'COUNT', count]
     if (block) commands.push('BLOCK', block)
-    commands.push('STREAMS', key, '>')
+    commands.push('STREAMS', streamName, '>')
 
     const resp = await db.xreadgroup('GROUP', groupName, ...commands)
-    if (resp === null) return null
+    if (resp === null) return []
 
-    const records = resp.flatMap(([_, entries]) => entries.map(([_, values]) => {
+    const records = resp.flatMap(([_, entries]) => entries.map(([key, values]) => {
       const chunked = chunk(values, 2)
       const record: Record<string, string> = Object.fromEntries(chunked)
 
-      return record
+      return {
+        id: key,
+        value: record,
+
+        ack: async () => {
+          await db.xack(streamName, groupName, key)
+        }
+      }
     }))
 
     return records
