@@ -1,0 +1,18 @@
+{
+  "name": "@lolpants/streamer",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "lib/**/*"
+  ],
+  "repository": "git@github.com:lolPants/streamer.git",
+  "author": "Jack Baron <jackmbaron@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "node": ">=14"
+  }
+}
