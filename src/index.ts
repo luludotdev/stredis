@@ -11,6 +11,11 @@ interface Options {
    * IORedis Connection Object
    */
   ioredis: Redis
+
+  /**
+   * Maximum time (in ms) that a message can remain pending before being claimed (default: 5000)
+   */
+  maxPendingTime?: number
 }
 
 interface BlockReadOptions {
@@ -143,5 +148,18 @@ export const createStreamer = (key: string, options: Options) => {
     }
   }
 
-  return { write, read, blockRead, readIterator }
+  /**
+   * Claims idle entries and returns them
+   * @param consumer Unique identifer for this consumer
+   * @param count Max number of items to read (default: 10)
+   */
+  const claim = async (consumer: string, count = 10) => {
+    const idle = options?.maxPendingTime ?? 1000
+    const [_, resp] = await db.xautoclaim(streamName, groupName, consumer, idle, '0', 'COUNT', count)
+
+    const records = parseResponse(resp)
+    return records
+  }
+
+  return { write, read, blockRead, readIterator, claim }
 }
