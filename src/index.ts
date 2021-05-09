@@ -84,6 +84,20 @@ export const createStreamer = (key: string, options: Options) => {
     await db.xadd(streamName, '*', ...flat)
   }
 
+  const parseResponse: (data: [id: string, values: string[]]) => Entry[] = data => data.map(([key, values]) => {
+    const chunked = chunk(values, 2)
+    const record: Record<string, string> = Object.fromEntries(chunked)
+
+    return {
+      id: key,
+      value: record,
+
+      ack: async () => {
+        await db.xack(streamName, groupName, key)
+      }
+    }
+  })
+
   const readInternal: (consumer: string, count: number, block?: number) => Promise<Array<Entry>> = async (consumer, count, block) => {
     await createGroup()
 
@@ -94,20 +108,7 @@ export const createStreamer = (key: string, options: Options) => {
     const resp = await db.xreadgroup('GROUP', groupName, ...commands)
     if (resp === null) return []
 
-    const records = resp.flatMap(([_, entries]) => entries.map(([key, values]) => {
-      const chunked = chunk(values, 2)
-      const record: Record<string, string> = Object.fromEntries(chunked)
-
-      return {
-        id: key,
-        value: record,
-
-        ack: async () => {
-          await db.xack(streamName, groupName, key)
-        }
-      }
-    }))
-
+    const records = resp.flatMap(([_, entry]) => parseResponse(entry as [string, string[]]))
     return records
   }
 
