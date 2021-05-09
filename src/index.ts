@@ -44,6 +44,11 @@ interface ReadIteratorOptions {
    * Max number of items to poll for at a time (default: 1)
    */
   maxItems?: number
+
+  /**
+   * Whether to automatically claim values (default: true)
+   */
+  autoclaim?: boolean
 }
 
 interface Entry {
@@ -150,12 +155,20 @@ export const createStreamer = (key: string, options: Options) => {
   async function* readIterator(consumer: string, options?: ReadIteratorOptions) {
     const count = options?.maxItems ?? 1
     const blockMS = options?.maxBlockTime ?? 1000
+    const autoclaim = options?.autoclaim ?? true
 
     while (true) {
       const values = await readInternal(consumer, count, blockMS)
 
       for (const entry of values) {
         yield entry
+      }
+
+      if (autoclaim) {
+        const values = await claim(consumer, count)
+        for (const entry of values) {
+          yield entry
+        }
       }
     }
   }
