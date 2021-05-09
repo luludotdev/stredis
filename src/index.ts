@@ -27,7 +27,7 @@ interface BlockReadOptions {
   blockMS?: number
 
   /**
-   * Max number of items to read (default: 1)
+   * Max number of items to read (default: 10)
    */
   count?: number
 }
@@ -41,7 +41,7 @@ interface ReadIteratorOptions {
   maxBlockTime?: number
 
   /**
-   * Max number of items to poll for at a time (default: 1)
+   * Max number of items to poll for at a time (default: 10)
    */
   maxItems?: number
 
@@ -127,9 +127,9 @@ export const createStreamer = (key: string, options: Options) => {
    *
    * Returns null if there are no values waiting
    * @param consumer Unique identifer for this consumer
-   * @param count Max number of items to read (default: 1)
+   * @param count Max number of items to read (default: 10)
    */
-  const read = async (consumer: string, count = 1) => {
+  const read = async (consumer: string, count = 10) => {
     return readInternal(consumer, count)
   }
 
@@ -141,7 +141,7 @@ export const createStreamer = (key: string, options: Options) => {
    * @param options
    */
   const blockRead = async (consumer: string, options?: BlockReadOptions) => {
-    const count = options?.count ?? 1
+    const count = options?.count ?? 10
     const blockMS = options?.blockMS ?? 1000
 
     return readInternal(consumer, count, blockMS)
@@ -153,7 +153,7 @@ export const createStreamer = (key: string, options: Options) => {
    * @param options
    */
   async function* readIterator(consumer: string, options?: ReadIteratorOptions) {
-    const count = options?.maxItems ?? 1
+    const count = options?.maxItems ?? 10
     const blockMS = options?.maxBlockTime ?? 1000
     const autoclaim = options?.autoclaim ?? true
 
