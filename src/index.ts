@@ -128,6 +128,13 @@ export const createStreamer = (key: string, options: Options) => {
     return readInternal(consumer, count)
   }
 
+  /**
+   * Blocking read data from the stream
+   *
+   * Returns null if there are no values waiting
+   * @param consumer Unique identifer for this consumer
+   * @param options
+   */
   const blockRead = async (consumer: string, options?: BlockReadOptions) => {
     const count = options?.count ?? 1
     const blockMS = options?.blockMS ?? 1000
@@ -135,6 +142,11 @@ export const createStreamer = (key: string, options: Options) => {
     return readInternal(consumer, count, blockMS)
   }
 
+  /**
+   * Create an async iterator for this stream
+   * @param consumer Unique identifer for this consumer
+   * @param options
+   */
   async function* readIterator(consumer: string, options?: ReadIteratorOptions) {
     const count = options?.maxItems ?? 1
     const blockMS = options?.maxBlockTime ?? 1000
