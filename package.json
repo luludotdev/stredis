@@ -1,5 +1,5 @@
 {
-  "name": "@lolpants/streamer",
+  "name": "stredis",
   "version": "0.1.0",
   "type": "module",
   "exports": "./lib/index.js",
@@ -21,7 +21,7 @@
     "predev": "yarn run clean",
     "dev": "yarn run watch  --sourceMap"
   },
-  "repository": "git@github.com:lolPants/streamer.git",
+  "repository": "git@github.com:lolPants/stredis.git",
   "author": "Jack Baron <jackmbaron@gmail.com>",
   "license": "MIT",
   "private": false,
