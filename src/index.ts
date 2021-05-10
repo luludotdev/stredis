@@ -1,6 +1,6 @@
+import chunk from 'chunk'
 import Redis from 'ioredis'
 import type { Redis as IORedis } from 'ioredis'
-import chunk from 'chunk'
 
 interface Options {
   /**
@@ -86,7 +86,9 @@ export const createStreamer = (key: string, options: Options) => {
   const resolveDB = () => {
     if (options.ioredis) return options.ioredis
     if (!options.connection) {
-      throw new Error('must specify either options.connection or options.ioredis')
+      throw new Error(
+        'must specify either options.connection or options.ioredis'
+      )
     }
 
     return new Redis({
@@ -114,28 +116,39 @@ export const createStreamer = (key: string, options: Options) => {
    * Write values into the stream
    * @param data Data to write
    */
-  const write = async (data: [key: string, value: string | Buffer] | Record<string, string | Buffer>) => {
+  const write = async (
+    data:
+      | [key: string, value: string | Buffer]
+      | Record<string, string | Buffer>
+  ) => {
     const mapped = Array.isArray(data) ? [data] : Object.entries(data)
     const flat = mapped.flat()
 
     await db.xadd(streamName, '*', ...flat)
   }
 
-  const parseResponse: (data: [id: string, values: string[]]) => Entry[] = data => data.map(([key, values]) => {
-    const chunked = chunk(values, 2)
-    const record: Record<string, string> = Object.fromEntries(chunked)
+  const parseResponse: (
+    data: [id: string, values: string[]]
+  ) => Entry[] = data =>
+    data.map(([key, values]) => {
+      const chunked = chunk(values, 2)
+      const record = Object.fromEntries(chunked) as Record<string, string>
 
-    return {
-      id: key,
-      value: record,
+      return {
+        id: key,
+        value: record,
 
-      ack: async () => {
-        await db.xack(streamName, groupName, key)
+        ack: async () => {
+          await db.xack(streamName, groupName, key)
+        },
       }
-    }
-  })
+    })
 
-  const readInternal: (consumer: string, count: number, block?: number) => Promise<Array<Entry>> = async (consumer, count, block) => {
+  const readInternal: (
+    consumer: string,
+    count: number,
+    block?: number
+  ) => Promise<Entry[]> = async (consumer, count, block) => {
     await createGroup()
 
     const commands = [consumer, 'COUNT', count]
@@ -145,7 +158,10 @@ export const createStreamer = (key: string, options: Options) => {
     const resp = await db.xreadgroup('GROUP', groupName, ...commands)
     if (resp === null) return []
 
-    const records = resp.flatMap(([_, entry]) => parseResponse(entry as [string, string[]]))
+    const records = resp.flatMap(([_, entry]) =>
+      parseResponse(entry as [string, string[]])
+    )
+
     return records
   }
 
@@ -179,11 +195,15 @@ export const createStreamer = (key: string, options: Options) => {
    * @param consumer Unique identifer for this consumer
    * @param options
    */
-  async function* readIterator(consumer: string, options?: ReadIteratorOptions) {
+  async function* readIterator(
+    consumer: string,
+    options?: ReadIteratorOptions
+  ) {
     const count = options?.maxItems ?? 10
     const blockMS = options?.maxBlockTime ?? 1000
     const autoclaim = options?.autoclaim ?? true
 
+    /* eslint-disable no-await-in-loop */
     while (true) {
       const values = await readInternal(consumer, count, blockMS)
 
@@ -198,6 +218,7 @@ export const createStreamer = (key: string, options: Options) => {
         }
       }
     }
+    /* eslint-enable no-await-in-loop */
   }
 
   /**
@@ -207,9 +228,17 @@ export const createStreamer = (key: string, options: Options) => {
    */
   const claim = async (consumer: string, count = 10) => {
     const idle = options?.maxPendingTime ?? 1000
-    const [_, resp] = await db.xautoclaim(streamName, groupName, consumer, idle, '0', 'COUNT', count)
+    const resp = await db.xautoclaim(
+      streamName,
+      groupName,
+      consumer,
+      idle,
+      '0',
+      'COUNT',
+      count
+    )
 
-    const records = parseResponse(resp)
+    const records = parseResponse(resp[1])
     return records
   }
 
