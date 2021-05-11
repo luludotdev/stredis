@@ -81,6 +81,7 @@ interface Entry {
 
 /**
  * @param key Redis Key to use for the Stream
+ * @param options Stream Options
  */
 export const createStream = (key: string, options: Options) => {
   const resolveDB = () => {
@@ -110,21 +111,6 @@ export const createStream = (key: string, options: Options) => {
     } catch {
       // No-op
     }
-  }
-
-  /**
-   * Write values into the stream
-   * @param data Data to write
-   */
-  const write = async (
-    data:
-      | [key: string, value: string | Buffer]
-      | Record<string, string | Buffer>
-  ) => {
-    const mapped = Array.isArray(data) ? [data] : Object.entries(data)
-    const flat = mapped.flat()
-
-    await db.xadd(streamName, '*', ...flat)
   }
 
   const parseResponse: (
@@ -165,68 +151,7 @@ export const createStream = (key: string, options: Options) => {
     return records
   }
 
-  /**
-   * Read data from the stream
-   *
-   * Returns null if there are no values waiting
-   * @param consumer Unique identifer for this consumer
-   * @param count Max number of items to read (default: 10)
-   */
-  const read = async (consumer: string, count = 10) => {
-    return readInternal(consumer, count)
-  }
-
-  /**
-   * Blocking read data from the stream
-   *
-   * Returns null if there are no values waiting
-   * @param consumer Unique identifer for this consumer
-   * @param options
-   */
-  const blockRead = async (consumer: string, options?: BlockReadOptions) => {
-    const count = options?.count ?? 10
-    const blockMS = options?.blockMS ?? 1000
-
-    return readInternal(consumer, count, blockMS)
-  }
-
-  /**
-   * Create an async iterator for this stream
-   * @param consumer Unique identifer for this consumer
-   * @param options
-   */
-  async function* readIterator(
-    consumer: string,
-    options?: ReadIteratorOptions
-  ): AsyncGenerator<Entry, never, void> {
-    const count = options?.maxItems ?? 10
-    const blockMS = options?.maxBlockTime ?? 1000
-    const autoclaim = options?.autoclaim ?? true
-
-    /* eslint-disable no-await-in-loop */
-    while (true) {
-      const values = await readInternal(consumer, count, blockMS)
-
-      for (const entry of values) {
-        yield entry
-      }
-
-      if (autoclaim) {
-        const values = await claim(consumer, count)
-        for (const entry of values) {
-          yield entry
-        }
-      }
-    }
-    /* eslint-enable no-await-in-loop */
-  }
-
-  /**
-   * Claims idle entries and returns them
-   * @param consumer Unique identifer for this consumer
-   * @param count Max number of items to read (default: 10)
-   */
-  const claim = async (consumer: string, count = 10) => {
+  const claimInternal = async (consumer: string, count: number) => {
     const idle = options?.maxPendingTime ?? 1000
     const resp = await db.xautoclaim(
       streamName,
@@ -242,5 +167,85 @@ export const createStream = (key: string, options: Options) => {
     return records
   }
 
-  return { write, read, blockRead, readIterator, claim }
+  return {
+    /**
+     * Write values into the stream
+     * @param data Data to write
+     */
+    write: async (
+      data:
+        | [key: string, value: string | Buffer]
+        | Record<string, string | Buffer>
+    ) => {
+      const mapped = Array.isArray(data) ? [data] : Object.entries(data)
+      const flat = mapped.flat()
+
+      await db.xadd(streamName, '*', ...flat)
+    },
+
+    /**
+     * Read data from the stream
+     *
+     * Returns null if there are no values waiting
+     * @param consumer Unique identifer for this consumer
+     * @param count Max number of items to read (default: 10)
+     */
+    read: async (consumer: string, count = 10) => {
+      return readInternal(consumer, count)
+    },
+
+    /**
+     * Blocking read data from the stream
+     *
+     * Returns null if there are no values waiting
+     * @param consumer Unique identifer for this consumer
+     * @param options
+     */
+    blockRead: async (consumer: string, options?: BlockReadOptions) => {
+      const count = options?.count ?? 10
+      const blockMS = options?.blockMS ?? 1000
+
+      return readInternal(consumer, count, blockMS)
+    },
+
+    /**
+     * Create an async iterator for this stream
+     * @param consumer Unique identifer for this consumer
+     * @param options
+     */
+    async *readIterator(
+      consumer: string,
+      options?: ReadIteratorOptions
+    ): AsyncGenerator<Entry, never, void> {
+      const count = options?.maxItems ?? 10
+      const blockMS = options?.maxBlockTime ?? 1000
+      const autoclaim = options?.autoclaim ?? true
+
+      /* eslint-disable no-await-in-loop */
+      while (true) {
+        const values = await readInternal(consumer, count, blockMS)
+
+        for (const entry of values) {
+          yield entry
+        }
+
+        if (autoclaim) {
+          const values = await claimInternal(consumer, count)
+          for (const entry of values) {
+            yield entry
+          }
+        }
+      }
+      /* eslint-enable no-await-in-loop */
+    },
+
+    /**
+     * Claims idle entries and returns them
+     * @param consumer Unique identifer for this consumer
+     * @param count Max number of items to read (default: 10)
+     */
+    claim: async (consumer: string, count = 10) => {
+      await claimInternal(consumer, count)
+    },
+  }
 }
