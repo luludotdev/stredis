@@ -171,7 +171,7 @@ export const createStream = (key: string, options: Options) => {
   }
 
   const claimInternal = async (consumer: string, count: number) => {
-    const idle = options?.maxPendingTime ?? 1000
+    const idle = options?.maxPendingTime ?? 5000
     const resp = await db.xautoclaim(
       streamName,
       groupName,
