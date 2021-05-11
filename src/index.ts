@@ -213,6 +213,8 @@ export const createStream = (key: string, options: Options) => {
 
     /**
      * Create an async iterator for this stream
+     *
+     * **Warning: will block the Redis connection**
      * @param consumer Unique identifer for this consumer
      * @param options
      */
