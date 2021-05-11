@@ -198,7 +198,7 @@ export const createStream = (key: string, options: Options) => {
   async function* readIterator(
     consumer: string,
     options?: ReadIteratorOptions
-  ) {
+  ): AsyncGenerator<Entry, never, void> {
     const count = options?.maxItems ?? 10
     const blockMS = options?.maxBlockTime ?? 1000
     const autoclaim = options?.autoclaim ?? true
