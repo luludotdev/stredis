@@ -82,7 +82,7 @@ interface Entry {
 /**
  * @param key Redis Key to use for the Stream
  */
-export const createStreamer = (key: string, options: Options) => {
+export const createStream = (key: string, options: Options) => {
   const resolveDB = () => {
     if (options.ioredis) return options.ioredis
     if (!options.connection) {
