@@ -28,6 +28,11 @@ interface Options {
    * Maximum time (in ms) that a message can remain pending before being claimed (default: 5000)
    */
   maxPendingTime?: number
+
+  /**
+   * Whether to delete entries from the stream after ACKing them (default: false)
+   */
+  drop?: boolean
 }
 
 interface BlockReadOptions {
@@ -75,8 +80,9 @@ interface Entry {
 
   /**
    * Mark this entry as acknowledged
+   * @param drop Override `options.drop`
    */
-  ack: () => Promise<void>
+  ack: (drop?: boolean) => Promise<void>
 }
 
 /**
@@ -124,8 +130,21 @@ export const createStream = (key: string, options: Options) => {
         id: key,
         value: record,
 
-        ack: async () => {
-          await db.xack(streamName, groupName, key)
+        ack: async (drop = options.drop ?? false) => {
+          if (drop) {
+            const transaction = db.multi()
+            transaction.xack(streamName, groupName, key)
+            transaction.xdel(streamName, key)
+
+            const result = await transaction.exec()
+            const errors = result.map(([error]) => error)
+
+            for (const error of errors) {
+              if (error !== null) throw error
+            }
+          } else {
+            await db.xack(streamName, groupName, key)
+          }
         },
       }
     })
