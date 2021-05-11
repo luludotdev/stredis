@@ -167,7 +167,7 @@ export const createStream = (key: string, options: Options) => {
     return records
   }
 
-  return {
+  return Object.freeze({
     /**
      * Write values into the stream
      * @param data Data to write
@@ -247,5 +247,5 @@ export const createStream = (key: string, options: Options) => {
     claim: async (consumer: string, count = 10) => {
       await claimInternal(consumer, count)
     },
-  }
+  })
 }
