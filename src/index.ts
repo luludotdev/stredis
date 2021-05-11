@@ -172,11 +172,11 @@ export const createStream = (key: string, options: Options) => {
      * Write values into the stream
      * @param data Data to write
      */
-    write: async (
+    async write(
       data:
         | [key: string, value: string | Buffer]
         | Record<string, string | Buffer>
-    ) => {
+    ): Promise<void> {
       const mapped = Array.isArray(data) ? [data] : Object.entries(data)
       const flat = mapped.flat()
 
@@ -190,7 +190,7 @@ export const createStream = (key: string, options: Options) => {
      * @param consumer Unique identifer for this consumer
      * @param count Max number of items to read (default: 10)
      */
-    read: async (consumer: string, count = 10) => {
+    async read(consumer: string, count = 10): Promise<Entry[]> {
       return readInternal(consumer, count)
     },
 
@@ -201,7 +201,10 @@ export const createStream = (key: string, options: Options) => {
      * @param consumer Unique identifer for this consumer
      * @param options
      */
-    blockRead: async (consumer: string, options?: BlockReadOptions) => {
+    async blockRead(
+      consumer: string,
+      options?: BlockReadOptions
+    ): Promise<Entry[]> {
       const count = options?.count ?? 10
       const blockMS = options?.blockMS ?? 1000
 
@@ -244,7 +247,7 @@ export const createStream = (key: string, options: Options) => {
      * @param consumer Unique identifer for this consumer
      * @param count Max number of items to read (default: 10)
      */
-    claim: async (consumer: string, count = 10) => {
+    async claim(consumer: string, count = 10): Promise<void> {
       await claimInternal(consumer, count)
     },
   })
