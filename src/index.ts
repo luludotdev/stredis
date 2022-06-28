@@ -1,6 +1,7 @@
-import chunk from 'chunk'
-import Redis from 'ioredis'
-import type { Redis as IORedis } from 'ioredis'
+import Redis, { type Redis as RedisClient } from 'ioredis'
+import { type Buffer } from 'node:buffer'
+import { chunk } from './chunk.js'
+import type { Entry as ReplyEntry, XAutoClaim, XReadGroup } from './types.js'
 
 interface Options {
   /**
@@ -20,9 +21,9 @@ interface Options {
   }
 
   /**
-   * IORedis Connection Object
+   * IORedis Client
    */
-  ioredis?: IORedis
+  client?: RedisClient
 
   /**
    * Maximum time (in ms) that a message can remain pending before being claimed (default: 5000)
@@ -91,7 +92,7 @@ interface Entry {
  */
 export const createStream = (key: string, options: Options) => {
   const resolveDB = () => {
-    if (options.ioredis) return options.ioredis
+    if (options.client) return options.client
     if (!options.connection) {
       throw new Error(
         'must specify either options.connection or options.ioredis'
@@ -119,9 +120,7 @@ export const createStream = (key: string, options: Options) => {
     }
   }
 
-  const parseResponse: (
-    data: [id: string, values: string[]]
-  ) => Entry[] = data =>
+  const parseResponse: (entries: readonly ReplyEntry[]) => Entry[] = data =>
     data.map(([key, values]) => {
       const chunked = chunk(values, 2)
       const record = Object.fromEntries(chunked) as Record<string, string>
@@ -130,14 +129,14 @@ export const createStream = (key: string, options: Options) => {
         id: key,
         value: record,
 
-        ack: async (drop = options.drop ?? false) => {
+        async ack(drop = options.drop ?? false) {
           if (drop) {
             const transaction = db.multi()
             transaction.xack(streamName, groupName, key)
             transaction.xdel(streamName, key)
 
             const result = await transaction.exec()
-            const errors = result.map(([error]) => error)
+            const errors = result?.map(([error]) => error) ?? []
 
             for (const error of errors) {
               if (error !== null) throw error
@@ -156,23 +155,40 @@ export const createStream = (key: string, options: Options) => {
   ) => Promise<Entry[]> = async (consumer, count, block) => {
     await createGroup()
 
-    const commands = [consumer, 'COUNT', count]
-    if (block) commands.push('BLOCK', block)
-    commands.push('STREAMS', streamName, '>')
+    const job = block
+      ? db.xreadgroup(
+          'GROUP',
+          groupName,
+          consumer,
+          'COUNT',
+          count,
+          'BLOCK',
+          block,
+          'STREAMS',
+          streamName,
+          '>'
+        )
+      : db.xreadgroup(
+          'GROUP',
+          groupName,
+          consumer,
+          'COUNT',
+          count,
+          'STREAMS',
+          streamName,
+          '>'
+        )
 
-    const resp = await db.xreadgroup('GROUP', groupName, ...commands)
+    const resp = (await job) as XReadGroup
     if (resp === null) return []
 
-    const records = resp.flatMap(([_, entry]) =>
-      parseResponse(entry as [string, string[]])
-    )
-
+    const records = resp.flatMap(([_, entry]) => parseResponse(entry))
     return records
   }
 
   const claimInternal = async (consumer: string, count: number) => {
     const idle = options?.maxPendingTime ?? 5000
-    const resp = await db.xautoclaim(
+    const resp = (await db.xautoclaim(
       streamName,
       groupName,
       consumer,
@@ -180,9 +196,11 @@ export const createStream = (key: string, options: Options) => {
       '0',
       'COUNT',
       count
-    )
+    )) as unknown
 
-    const records = parseResponse(resp[1])
+    const [, entries] = resp as XAutoClaim
+    const records = parseResponse(entries)
+
     return records
   }
 
