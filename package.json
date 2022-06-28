@@ -1,6 +1,7 @@
 {
   "name": "stredis",
   "version": "0.2.0",
+  "packageManager": "yarn@3.2.1",
   "type": "module",
   "exports": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -24,7 +25,6 @@
   "repository": "git@github.com:lolPants/stredis.git",
   "author": "Jack Baron <jackmbaron@gmail.com>",
   "license": "MIT",
-  "private": false,
   "engines": {
     "node": ">=14"
   },
