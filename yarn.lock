@@ -345,6 +345,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@lolpants/chunk@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@lolpants/chunk@npm:0.1.0"
+  checksum: 22b0e9a930b0700f19c0a18592a670c4595329adf05b825b8e155eb6b96188fd3760684814978c1b913da92c34fff9b9aafe6635084a10b58013e61788bbd018
+  languageName: node
+  linkType: hard
+
 "@lolpants/eslint-config@npm:^0.2.3":
   version: 0.2.3
   resolution: "@lolpants/eslint-config@npm:0.2.3"
@@ -4608,6 +4615,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "stredis@workspace:."
   dependencies:
+    "@lolpants/chunk": ^0.1.0
     "@lolpants/eslint-config": ^0.2.3
     "@types/node": ^18.11.7
     eslint: ^8.26.0

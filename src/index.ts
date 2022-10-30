@@ -1,6 +1,6 @@
+import type { Buffer } from 'node:buffer'
+import { chunkStrict as chunk } from '@lolpants/chunk'
 import Redis, { type Redis as RedisClient } from 'ioredis'
-import { type Buffer } from 'node:buffer'
-import { chunk } from './chunk.js'
 import type { Entry as ReplyEntry, XAutoClaim, XReadGroup } from './types.js'
 
 interface Options {
@@ -81,21 +81,22 @@ interface Entry {
 
   /**
    * Mark this entry as acknowledged
-   * @param drop Override `options.drop`
+   *
+   * @param drop - Override `options.drop`
    */
-  ack: (drop?: boolean) => Promise<void>
+  ack(drop?: boolean): Promise<void>
 }
 
 /**
- * @param key Redis Key to use for the Stream
- * @param options Stream Options
+ * @param key - Redis Key to use for the Stream
+ * @param options - Stream Options
  */
 export const createStream = (key: string, options: Options) => {
   const resolveDB = () => {
     if (options.client) return options.client
     if (!options.connection) {
       throw new Error(
-        'must specify either options.connection or options.ioredis'
+        'must specify either options.connection or options.ioredis',
       )
     }
 
@@ -151,7 +152,7 @@ export const createStream = (key: string, options: Options) => {
   const readInternal: (
     consumer: string,
     count: number,
-    block?: number
+    block?: number,
   ) => Promise<Entry[]> = async (consumer, count, block) => {
     await createGroup()
 
@@ -166,7 +167,7 @@ export const createStream = (key: string, options: Options) => {
           block,
           'STREAMS',
           streamName,
-          '>'
+          '>',
         )
       : db.xreadgroup(
           'GROUP',
@@ -176,18 +177,17 @@ export const createStream = (key: string, options: Options) => {
           count,
           'STREAMS',
           streamName,
-          '>'
+          '>',
         )
 
     const resp = (await job) as XReadGroup
     if (resp === null) return []
 
-    const records = resp.flatMap(([_, entry]) => parseResponse(entry))
-    return records
+    return resp.flatMap(([_, entry]) => parseResponse(entry))
   }
 
   const claimInternal = async (consumer: string, count: number) => {
-    const idle = options?.maxPendingTime ?? 5000
+    const idle = options?.maxPendingTime ?? 5_000
     const resp = (await db.xautoclaim(
       streamName,
       groupName,
@@ -195,24 +195,23 @@ export const createStream = (key: string, options: Options) => {
       idle,
       '0',
       'COUNT',
-      count
+      count,
     )) as unknown
 
     const [, entries] = resp as XAutoClaim
-    const records = parseResponse(entries)
-
-    return records
+    return parseResponse(entries)
   }
 
   return Object.freeze({
     /**
      * Write values into the stream
-     * @param data Data to write
+     *
+     * @param data - Data to write
      */
     async write(
       data:
-        | [key: string, value: string | Buffer]
-        | Record<string, string | Buffer>
+        | Record<string, Buffer | string>
+        | [key: string, value: Buffer | string],
     ): Promise<void> {
       const mapped = Array.isArray(data) ? [data] : Object.entries(data)
       const flat = mapped.flat()
@@ -224,8 +223,9 @@ export const createStream = (key: string, options: Options) => {
      * Read data from the stream
      *
      * Returns null if there are no values waiting
-     * @param consumer Unique identifer for this consumer
-     * @param count Max number of items to read (default: 10)
+     *
+     * @param consumer - Unique identifer for this consumer
+     * @param count - Max number of items to read (default: 10)
      */
     async read(consumer: string, count = 10): Promise<Entry[]> {
       return readInternal(consumer, count)
@@ -235,15 +235,16 @@ export const createStream = (key: string, options: Options) => {
      * Blocking read data from the stream
      *
      * Returns null if there are no values waiting
-     * @param consumer Unique identifer for this consumer
-     * @param options
+     *
+     * @param consumer - Unique identifer for this consumer
+     * @param options - Options
      */
     async blockRead(
       consumer: string,
-      options?: BlockReadOptions
+      options?: BlockReadOptions,
     ): Promise<Entry[]> {
       const count = options?.count ?? 10
-      const blockMS = options?.blockMS ?? 1000
+      const blockMS = options?.blockMS ?? 1_000
 
       return readInternal(consumer, count, blockMS)
     },
@@ -252,15 +253,16 @@ export const createStream = (key: string, options: Options) => {
      * Create an async iterator for this stream
      *
      * **Warning: will block the Redis connection**
-     * @param consumer Unique identifer for this consumer
-     * @param options
+     *
+     * @param consumer - Unique identifer for this consumer
+     * @param options - Options
      */
     async *readIterator(
       consumer: string,
-      options?: ReadIteratorOptions
+      options?: ReadIteratorOptions,
     ): AsyncGenerator<Entry, never, void> {
       const count = options?.maxItems ?? 10
-      const blockMS = options?.maxBlockTime ?? 1000
+      const blockMS = options?.maxBlockTime ?? 1_000
       const autoclaim = options?.autoclaim ?? true
 
       /* eslint-disable no-await-in-loop */
@@ -283,8 +285,9 @@ export const createStream = (key: string, options: Options) => {
 
     /**
      * Claims idle entries and returns them
-     * @param consumer Unique identifer for this consumer
-     * @param count Max number of items to read (default: 10)
+     *
+     * @param consumer - Unique identifer for this consumer
+     * @param count - Max number of items to read (default: 10)
      */
     async claim(consumer: string, count = 10): Promise<void> {
       await claimInternal(consumer, count)

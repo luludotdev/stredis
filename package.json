@@ -43,6 +43,7 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
+    "@lolpants/chunk": "^0.1.0",
     "ioredis": "^5.2.3"
   }
 }
